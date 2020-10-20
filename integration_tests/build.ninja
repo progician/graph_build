@@ -1,0 +1,4 @@
+rule capitalize
+    command = dd if=$in of=$out conv=ucase
+
+build loremipsum.txt.u: capitalize loremipsum.txt

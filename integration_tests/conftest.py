@@ -13,7 +13,6 @@ def gbcli(request):
     def _run_gbcli(args=[], cwd=None):
         args.insert(0, cli)
         completion = subprocess.run(args, cwd=cwd)
-        if completion.returncode != 0:
-            
+        completion.check_returncode()
 
     return _run_gbcli
