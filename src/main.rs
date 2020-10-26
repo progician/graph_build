@@ -1,7 +1,6 @@
 use std::env;
 
 mod graph;
-mod state;
 
 fn run_app() -> Result<(), String> {
     let cwd_path = match env::current_dir() {
