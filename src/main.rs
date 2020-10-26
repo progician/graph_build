@@ -1,11 +1,10 @@
 use std::env;
 
-fn run_app() -> Result<(), i32> {
+fn run_app() -> Result<(), String> {
     let cwd_path = match env::current_dir() {
         Ok(p) => p,
         Err(_) => {
-            eprint!("error: couldn't get current working directory");
-            return Err(1)
+            return Err("couldn't get current working directory".to_owned())
         }
     };
 
@@ -15,8 +14,7 @@ fn run_app() -> Result<(), i32> {
         Ok(())
     }
     else {
-        eprint!("error: no build.ninja file found!");
-        Err(1)
+        Err("no build.ninja file found".to_owned())
     }
 }
 
@@ -24,6 +22,9 @@ fn run_app() -> Result<(), i32> {
 fn main() {
     std::process::exit(match run_app() {
         Ok(_) => 0,
-        Err(err) => err,
+        Err(err) => {
+            eprintln!("error: {}", err);
+            1
+        },
     });
 }
