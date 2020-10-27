@@ -4,6 +4,7 @@ from subprocess import CalledProcessError
 import shutil
 import ninja_syntax
 
+
 def test_fails_with_no_ninja_build_file(gbcli, tmp_path):
     with raises(CalledProcessError):
         gbcli(cwd=tmp_path)
@@ -23,5 +24,7 @@ def test_fails_input_file_missing(gbcli, tmp_path):
         writer.rule("capitalize", "dd if=$in of=$out conv=ucase")
         writer.build("loremipsum.txt.u", "capitalize", "loremipsum.txt")
 
-    with raises(CalledProcessError, match="error: 'loremipsum.txt', needed by 'loremipsum.txt.u', missing and no known rule to make it"):
+    with raises(CalledProcessError) as exc_info:
         gbcli(cwd=tmp_path)
+    assert "error: 'loremipsum.txt', needed by 'loremipsum.txt.u', missing and no known rule to make it" in exc_info.value.output
+

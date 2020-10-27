@@ -12,7 +12,6 @@ def gbcli(request):
     cli = request.config.getoption("--cli-exec")
     def _run_gbcli(args=[], cwd=None):
         args.insert(0, cli)
-        completion = subprocess.run(args, cwd=cwd)
-        completion.check_returncode()
+        subprocess.check_output(args, cwd=cwd, stderr=subprocess.STDOUT, text=True)
 
     return _run_gbcli

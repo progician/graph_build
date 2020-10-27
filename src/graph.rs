@@ -2,18 +2,18 @@ use std::collections::HashMap;
 
 
 pub struct Node {
-    pub name: String,
-    pub input: String,
     pub output: String,
+    pub rule: String,
+    pub input: String,
 }
 
 
 impl Node {
-    pub fn new(name: String, input: String, output: String) -> Self {
+    pub fn new<Stringish: AsRef<str>>(output: Stringish, rule: Stringish, input: Stringish) -> Self {
         Node {
-            name: name,
-            input: input,
-            output: output,
+            input: input.as_ref().to_string(),
+            rule: rule.as_ref().to_string(),
+            output: output.as_ref().to_string(),
         }
     }
 }
@@ -25,18 +25,18 @@ pub struct Rule {
 }
 
 impl Rule {
-    pub fn new(name: String, command: String) -> Self {
+    pub fn new<Stringish: AsRef<str>>(name: Stringish, command: Stringish) -> Self {
         Rule {
-            name: name,
-            command: command,
+            name: name.as_ref().to_string(),
+            command: command.as_ref().to_string(),
         }
     }
 }
 
 
 pub struct Graph {
-    rules: HashMap<String, Rule>,
-    nodes: HashMap<String, Node>,
+    pub rules: HashMap<String, Rule>,
+    pub nodes: HashMap<String, Node>,
 }
 
 impl Graph {
@@ -60,12 +60,12 @@ impl Graph {
 
 
     pub fn build(&mut self, node: Node) -> Result<(), String> {
-        if !self.nodes.contains_key(&node.name) {
-            self.nodes.insert(node.name.clone(), node);
+        if !self.nodes.contains_key(&node.output) {
+            self.nodes.insert(node.output.clone(), node);
             Ok(())
         }
         else {
-            Err(format!("multiple rules generate '{}'", &node.name))
+            Err(format!("multiple rules generate '{}'", &node.output))
         }
     }
 }
@@ -74,9 +74,9 @@ impl Graph {
 #[test]
 fn cannot_add_duplicate_rule() {
     let mut graph = Graph::new();
-    graph.rule(Rule::new(String::from("cc"), String::from("gcc -c $in -o $out"))).unwrap();
+    graph.rule(Rule::new("cc", "gcc -c $in -o $out")).unwrap();
     assert_eq!(
-        graph.rule(Rule::new(String::from("cc"), String::from("clang -c $in -o $out"))),
+        graph.rule(Rule::new("cc", "clang -c $in -o $out")),
         Err(String::from("duplicate rule 'cc'"))
     );
 }
@@ -84,9 +84,9 @@ fn cannot_add_duplicate_rule() {
 #[test]
 fn cannot_add_duplicate_build_rule() {
     let mut graph = Graph::new();
-    graph.build(Node::new(String::from("foo.o"), String::from("cc"), String::from("gcc foo.cpp"))).unwrap();
+    graph.build(Node::new("foo.o", "cc", "foo.cpp")).unwrap();
     assert_eq!(
-        graph.build(Node::new(String::from("foo.o"), String::from("cc"), String::from("gcc foo.cpp"))),
+        graph.build(Node::new("foo.o", "cxx", "bar.cpp")),
         Err(String::from("multiple rules generate 'foo.o'"))
     );
 }
