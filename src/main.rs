@@ -17,12 +17,12 @@ fn read_build_file(file_path: &Path) -> Result<graph::Graph, String> {
         return Err(err.to_string());
     }
 
-    ninja_file::read(&contents)
+    unimplemented!();
 }
 
 
 fn check_graph(build_graph: &graph::Graph) -> Result<(), String> {
-    for (_, build_command) in &build_graph.nodes {
+    for (_, build_command) in &build_graph.edges {
         let input_file = Path::new(&build_command.input);
         if !input_file.exists() {
             return Err(format!("'{}', needed by '{}', missing and no known rule to make it",

@@ -1,16 +1,16 @@
 use std::collections::HashMap;
 
 
-pub struct Node {
+pub struct Edge {
     pub output: String,
     pub rule: String,
     pub input: String,
 }
 
 
-impl Node {
+impl Edge {
     pub fn new<Stringish: AsRef<str>>(output: Stringish, rule: Stringish, input: Stringish) -> Self {
-        Node {
+        Edge {
             input: input.as_ref().to_string(),
             rule: rule.as_ref().to_string(),
             output: output.as_ref().to_string(),
@@ -19,16 +19,19 @@ impl Node {
 }
 
 
+pub type Bindings = HashMap<String, String>;
+
+
 pub struct Rule {
     pub name: String,
-    pub command: String,
+    pub bindings: Bindings,
 }
 
 impl Rule {
-    pub fn new<Stringish: AsRef<str>>(name: Stringish, command: Stringish) -> Self {
+    pub fn new<Stringish: AsRef<str>>(name: Stringish, bindings: Bindings) -> Self {
         Rule {
             name: name.as_ref().to_string(),
-            command: command.as_ref().to_string(),
+            bindings: bindings,
         }
     }
 }
@@ -36,17 +39,22 @@ impl Rule {
 
 pub struct Graph {
     pub rules: HashMap<String, Rule>,
-    pub nodes: HashMap<String, Node>,
+    pub edges: HashMap<String, Edge>,
+    pub variables: Bindings,
 }
 
 impl Graph {
     pub fn new() -> Self {
         Graph {
             rules: HashMap::new(),
-            nodes: HashMap::new(),
+            edges: HashMap::new(),
+            variables: Bindings::new(),
         }
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.rules.is_empty() && self.edges.is_empty()
+    }
 
     pub fn rule(&mut self, rule: Rule) -> Result<(), String> {
         if !self.rules.contains_key(&rule.name) {
@@ -59,13 +67,13 @@ impl Graph {
     }
 
 
-    pub fn build(&mut self, node: Node) -> Result<(), String> {
-        if !self.nodes.contains_key(&node.output) {
-            self.nodes.insert(node.output.clone(), node);
+    pub fn build(&mut self, edge: Edge) -> Result<(), String> {
+        if !self.edges.contains_key(&edge.output) {
+            self.edges.insert(edge.output.clone(), edge);
             Ok(())
         }
         else {
-            Err(format!("multiple rules generate '{}'", &node.output))
+            Err(format!("multiple rules generate '{}'", &edge.output))
         }
     }
 }
@@ -74,9 +82,9 @@ impl Graph {
 #[test]
 fn cannot_add_duplicate_rule() {
     let mut graph = Graph::new();
-    graph.rule(Rule::new("cc", "gcc -c $in -o $out")).unwrap();
+    graph.rule(Rule::new("cc", HashMap::new())).unwrap();
     assert_eq!(
-        graph.rule(Rule::new("cc", "clang -c $in -o $out")),
+        graph.rule(Rule::new("cc", HashMap::new())),
         Err(String::from("duplicate rule 'cc'"))
     );
 }
@@ -84,9 +92,9 @@ fn cannot_add_duplicate_rule() {
 #[test]
 fn cannot_add_duplicate_build_rule() {
     let mut graph = Graph::new();
-    graph.build(Node::new("foo.o", "cc", "foo.cpp")).unwrap();
+    graph.build(Edge::new("foo.o", "cc", "foo.cpp")).unwrap();
     assert_eq!(
-        graph.build(Node::new("foo.o", "cxx", "bar.cpp")),
+        graph.build(Edge::new("foo.o", "cxx", "bar.cpp")),
         Err(String::from("multiple rules generate 'foo.o'"))
     );
 }
