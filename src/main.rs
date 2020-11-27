@@ -7,17 +7,17 @@ mod graph;
 mod ninja_file;
 
 
-fn read_build_file(file_path: &Path) -> Result<graph::Graph, String> {
+fn read_build_file(file_path: &Path) -> ninja_file::Result {
     let mut file = match File::open(file_path) {
         Ok(f) => f,
-        Err(err) => return Err(err.to_string()),
+        Err(err) => return Err(vec!(err.to_string())),
     };
     let mut contents = String::new();
     if let Err(err) = file.read_to_string(&mut contents) {
-        return Err(err.to_string());
+        return Err(vec!(err.to_string()));
     }
 
-    unimplemented!();
+    ninja_file::parse(&contents)
 }
 
 
@@ -46,7 +46,7 @@ fn run_app() -> Result<(), String> {
     let mut build_file = cwd_path.clone();
     build_file.push("build.ninja");
     if build_file.is_file() {
-        let build_graph = read_build_file(&build_file)?;
+        let build_graph = read_build_file(&build_file).unwrap();
         check_graph(&build_graph)?;
         Ok(())
     }

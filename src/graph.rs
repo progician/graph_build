@@ -24,14 +24,14 @@ pub type Bindings = HashMap<String, String>;
 
 pub struct Rule {
     pub name: String,
-    pub bindings: Bindings,
+    pub variables: Bindings,
 }
 
 impl Rule {
-    pub fn new<Stringish: AsRef<str>>(name: Stringish, bindings: Bindings) -> Self {
+    pub fn new<Stringish: AsRef<str>>(name: Stringish, variables: Bindings) -> Self {
         Rule {
             name: name.as_ref().to_string(),
-            bindings: bindings,
+            variables: variables,
         }
     }
 }
