@@ -9,7 +9,7 @@ enum Token {
     #[error]
     Error,
 
-    #[regex(r"\s+")]
+    #[regex(r"[ ]+")]
     Whitespace,
 
     #[token("rule")]
@@ -23,6 +23,23 @@ enum Token {
 
     #[regex("\n")]
     Newline,
+}
+
+
+fn expect_token(lexer: &mut Lexer<Token>, expectation: Token) -> std::result::Result<(), Vec<SyntaxError>> {
+    if let Some(token) = lexer.next() {
+        if token == expectation {
+            Ok(())
+        }
+        else {
+            Err(vec!(format!(
+                "unexpected token {}", lexer.slice()
+            )))
+        }
+    }
+    else {
+        Err(vec!("unexpected end of file".to_string()))
+    }
 }
 
 
@@ -46,18 +63,24 @@ fn parse_global_variable_assignment(lexer: &mut Lexer<Token>, mut graph: Graph) 
 }
 
 
-fn expect_token(lexer: &mut Lexer<Token>, expectation: Token) -> std::result::Result<(), Vec<SyntaxError>> {
-    if let Some(token) = lexer.next() {
-        if token == expectation {
-            Ok(())
+fn parse_indented_variable_block(lexer: &mut Lexer<Token>) -> std::result::Result<Bindings, Vec<SyntaxError>> {
+    let mut variables = Bindings::new();
+    while let Some(token) = lexer.next() {
+        if token != Token::Whitespace {
+            return Ok(variables);
         }
-        else {
-            Err(vec!("unexpected token".to_string()))
-        }
+
+        expect_token(lexer, Token::Identifer)?;
+        let variable_name = lexer.slice().to_string();
+
+        expect_token(lexer, Token::AssignmentValue)?;
+        let mut assigned_value = lexer.slice().to_string();
+        assigned_value.remove(0);
+        variables.insert(variable_name, assigned_value);
+
+        expect_token(lexer, Token::Newline)?;
     }
-    else {
-        Err(vec!("unexpected end of file".to_string()))
-    }
+    Ok(variables)
 }
 
 
@@ -66,14 +89,18 @@ fn parse_rule(lexer: &mut Lexer<Token>, mut graph: Graph) -> Result {
     expect_token(lexer, Token::Identifer)?;
 
     let rule_name = lexer.slice().to_string();
+    expect_token(lexer, Token::Newline)?;
+
+    let rule_bindings = parse_indented_variable_block(lexer)?;
+
     let new_rule = Rule {
         name: rule_name,
-        variables: Bindings::new(),
+        variables: rule_bindings,
     };
     if let Err(err) = graph.rule(new_rule) {
         return Err(vec!(err));
     }
-    expect_token(lexer, Token::Newline)?;
+    
     Ok(graph)
 }
 
@@ -127,13 +154,28 @@ fn uniquely_named_assignments_separated_by_newlines_are_global_variables() {
 
 
 #[test]
-fn rules_are_defined_by_keyword_name_and_an_indented_block_of_variables() {
-    let rule_text =
+fn rules_are_defined_by_keyword_and_identifier() {
+    const RULE_TEXT: &str =
 "rule cc
 ";
-    let graph_for_rule = parse(rule_text).unwrap();
+    let graph_for_rule = parse(RULE_TEXT).unwrap();
     assert_eq!(
         graph_for_rule.rules.contains_key("cc"),
         true
+    );
+}
+
+
+#[test]
+fn indented_variable_block_after_rule_are_variables_of_the_rule() {
+    const VARIABLE_VALUE: &str = "gcc $in -o $out";
+    let rule_text =
+format!("rule cc
+    command={}
+", VARIABLE_VALUE);
+    let graph_for_rule = parse(&rule_text).unwrap();
+    assert_eq!(
+        graph_for_rule.rules["cc"].variables["command"],
+        VARIABLE_VALUE
     );
 }
