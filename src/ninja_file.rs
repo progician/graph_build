@@ -1,5 +1,6 @@
 use super::graph::{Graph, Rule, Bindings};
 use logos::{Lexer, Logos};
+use std::collections::VecDeque;
 
 pub type SyntaxError = String;
 pub type Result = std::result::Result<Graph, Vec<SyntaxError>>;
@@ -26,7 +27,57 @@ enum Token {
 }
 
 
-fn expect_token(lexer: &mut Lexer<Token>, expectation: Token) -> std::result::Result<(), Vec<SyntaxError>> {
+struct FullToken {
+    kind: Token,
+    span: logos::Span,
+}
+
+
+struct NinjaLexer<'a> {
+    inner: Lexer<'a, Token>,
+    peeked: VecDeque<FullToken>,
+    span: Option<logos::Span>,
+}
+
+
+impl<'a> NinjaLexer<'a> {
+    pub fn new(text: &'a str) -> Self {
+        Self {
+            inner: Lexer::new(text),
+            peeked: VecDeque::new(),
+            span: None,
+        }
+    }
+
+    pub fn slice(&self) -> &str {
+        unsafe {
+            let sp = self.span.as_ref().unwrap();
+            self.inner.source().get_unchecked( sp.start..sp.end)
+        }
+    }
+}
+
+
+impl<'a> Iterator for NinjaLexer<'a> {
+    type Item = Token;
+    
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.peeked.pop_front() {
+            Some(token) => {
+                self.span = Some(token.span);
+                Some(token.kind)
+            },
+            None => {
+                let result = self.inner.next();
+                self.span = Some(self.inner.span());
+                result
+            },
+        }
+    }
+}
+
+
+fn expect_token(lexer: &mut NinjaLexer, expectation: Token) -> std::result::Result<(), Vec<SyntaxError>> {
     if let Some(token) = lexer.next() {
         if token == expectation {
             Ok(())
@@ -43,7 +94,7 @@ fn expect_token(lexer: &mut Lexer<Token>, expectation: Token) -> std::result::Re
 }
 
 
-fn parse_global_variable_assignment(lexer: &mut Lexer<Token>, mut graph: Graph) -> Result {
+fn parse_global_variable_assignment(lexer: &mut NinjaLexer, mut graph: Graph) -> Result {
     let variable_name = lexer.slice().to_string();
 
     if let Some(next_token) = lexer.next() {
@@ -63,7 +114,7 @@ fn parse_global_variable_assignment(lexer: &mut Lexer<Token>, mut graph: Graph) 
 }
 
 
-fn parse_indented_variable_block(lexer: &mut Lexer<Token>) -> std::result::Result<Bindings, Vec<SyntaxError>> {
+fn parse_indented_variable_block(lexer: &mut NinjaLexer) -> std::result::Result<Bindings, Vec<SyntaxError>> {
     let mut variables = Bindings::new();
     while let Some(token) = lexer.next() {
         if token != Token::Whitespace {
@@ -84,7 +135,7 @@ fn parse_indented_variable_block(lexer: &mut Lexer<Token>) -> std::result::Resul
 }
 
 
-fn parse_rule(lexer: &mut Lexer<Token>, mut graph: Graph) -> Result {
+fn parse_rule(lexer: &mut NinjaLexer, mut graph: Graph) -> Result {
     expect_token(lexer, Token::Whitespace)?;
     expect_token(lexer, Token::Identifer)?;
 
@@ -107,7 +158,7 @@ fn parse_rule(lexer: &mut Lexer<Token>, mut graph: Graph) -> Result {
 
 pub fn parse(text: &str) -> Result {
     let mut graph_from_text = Graph::new();
-    let mut lexer: Lexer<Token> = Lexer::new(text);
+    let mut lexer = NinjaLexer::new(text);
     
     while let Some(token) = lexer.next() {
         match token {
@@ -179,3 +230,4 @@ format!("rule cc
         VARIABLE_VALUE
     );
 }
+
