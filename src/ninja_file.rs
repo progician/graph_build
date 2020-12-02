@@ -17,7 +17,7 @@ enum Token {
     Rule,
 
     #[regex(r"[a-zA-Z0-9_.-]+")]
-    Identifer,
+    Identifier,
 
     #[regex(r"=.+")]
     AssignmentValue,
@@ -27,8 +27,33 @@ enum Token {
 }
 
 
+#[derive(PartialEq, Clone)]
+enum TokenKind {
+    Error,
+    Whitespace,
+    Rule,
+    Identifier,
+    AssignmentValue,
+    Newline,
+}
+
+
+impl From<Token> for TokenKind {
+    fn from(token: Token) -> Self {
+        match token {
+            Token::Error => TokenKind::Error,
+            Token::Whitespace => TokenKind::Whitespace,
+            Token::Rule => TokenKind::Rule,
+            Token::Identifier => TokenKind::Identifier,
+            Token::AssignmentValue => TokenKind::AssignmentValue,
+            Token::Newline => TokenKind::Newline,
+        }
+    }
+}
+
+
 struct FullToken {
-    kind: Token,
+    kind: TokenKind,
     span: logos::Span,
 }
 
@@ -37,29 +62,54 @@ struct NinjaLexer<'a> {
     inner: Lexer<'a, Token>,
     peeked: VecDeque<FullToken>,
     span: Option<logos::Span>,
+    done: bool,
 }
 
 
 impl<'a> NinjaLexer<'a> {
-    pub fn new(text: &'a str) -> Self {
+    fn new(text: &'a str) -> Self {
         Self {
             inner: Lexer::new(text),
             peeked: VecDeque::new(),
             span: None,
+            done: false,
         }
     }
 
-    pub fn slice(&self) -> &str {
+    fn slice(&self) -> &str {
         unsafe {
             let sp = self.span.as_ref().unwrap();
             self.inner.source().get_unchecked( sp.start..sp.end)
+        }
+    }
+
+    fn peek(&mut self) -> Option<TokenKind> {
+        self.peek_nth(0)
+    }
+
+    fn peek_nth(&mut self, n: usize) -> Option<TokenKind> {
+        while self.peeked.len() <= n && !self.done {
+            if let Some(token) = self.inner.next() {
+                self.peeked.push_back(FullToken {
+                    kind: TokenKind::from(token),
+                    span: self.inner.span(),
+                });
+            }
+            else {
+                self.done = true;
+            }
+        }
+
+        match self.peeked.get(n) {
+            Some(full_token) => Some(full_token.kind.clone()),
+            None => None,
         }
     }
 }
 
 
 impl<'a> Iterator for NinjaLexer<'a> {
-    type Item = Token;
+    type Item = TokenKind;
     
     fn next(&mut self) -> Option<Self::Item> {
         match self.peeked.pop_front() {
@@ -68,7 +118,13 @@ impl<'a> Iterator for NinjaLexer<'a> {
                 Some(token.kind)
             },
             None => {
-                let result = self.inner.next();
+                let result = match self.inner.next() {
+                    Some(token) => Some(TokenKind::from(token)),
+                    None => {
+                        self.done = true;
+                        None
+                    },
+                };
                 self.span = Some(self.inner.span());
                 result
             },
@@ -77,7 +133,7 @@ impl<'a> Iterator for NinjaLexer<'a> {
 }
 
 
-fn expect_token(lexer: &mut NinjaLexer, expectation: Token) -> std::result::Result<(), Vec<SyntaxError>> {
+fn expect_token(lexer: &mut NinjaLexer, expectation: TokenKind) -> std::result::Result<(), Vec<SyntaxError>> {
     if let Some(token) = lexer.next() {
         if token == expectation {
             Ok(())
@@ -98,14 +154,14 @@ fn parse_global_variable_assignment(lexer: &mut NinjaLexer, mut graph: Graph) ->
     let variable_name = lexer.slice().to_string();
 
     if let Some(next_token) = lexer.next() {
-        if next_token != Token::AssignmentValue {
+        if next_token != TokenKind::AssignmentValue {
             return Err(vec!("value assignment expected".to_string()));
         }
         let mut assigned_value = lexer.slice().to_string();
         assigned_value.remove(0);
         graph.variables.insert(variable_name, assigned_value);
         if let Some(expected_line_ending) = lexer.next() {
-            if expected_line_ending != Token::Newline {
+            if expected_line_ending != TokenKind::Newline {
                 return Err(vec!("newline expected after variable assignment".to_string()));
             }
         }
@@ -116,31 +172,32 @@ fn parse_global_variable_assignment(lexer: &mut NinjaLexer, mut graph: Graph) ->
 
 fn parse_indented_variable_block(lexer: &mut NinjaLexer) -> std::result::Result<Bindings, Vec<SyntaxError>> {
     let mut variables = Bindings::new();
-    while let Some(token) = lexer.next() {
-        if token != Token::Whitespace {
+    while let Some(token) = lexer.peek() {
+        if token != TokenKind::Whitespace {
             return Ok(variables);
         }
 
-        expect_token(lexer, Token::Identifer)?;
+        expect_token(lexer, TokenKind::Whitespace)?;
+        expect_token(lexer, TokenKind::Identifier)?;
         let variable_name = lexer.slice().to_string();
 
-        expect_token(lexer, Token::AssignmentValue)?;
+        expect_token(lexer, TokenKind::AssignmentValue)?;
         let mut assigned_value = lexer.slice().to_string();
         assigned_value.remove(0);
         variables.insert(variable_name, assigned_value);
 
-        expect_token(lexer, Token::Newline)?;
+        expect_token(lexer, TokenKind::Newline)?;
     }
     Ok(variables)
 }
 
 
 fn parse_rule(lexer: &mut NinjaLexer, mut graph: Graph) -> Result {
-    expect_token(lexer, Token::Whitespace)?;
-    expect_token(lexer, Token::Identifer)?;
+    expect_token(lexer, TokenKind::Whitespace)?;
+    expect_token(lexer, TokenKind::Identifier)?;
 
     let rule_name = lexer.slice().to_string();
-    expect_token(lexer, Token::Newline)?;
+    expect_token(lexer, TokenKind::Newline)?;
 
     let rule_bindings = parse_indented_variable_block(lexer)?;
 
@@ -162,8 +219,8 @@ pub fn parse(text: &str) -> Result {
     
     while let Some(token) = lexer.next() {
         match token {
-            Token::Identifer => graph_from_text = parse_global_variable_assignment(&mut lexer, graph_from_text)?,
-            Token::Rule => graph_from_text = parse_rule(&mut lexer, graph_from_text)?,
+            TokenKind::Identifier => graph_from_text = parse_global_variable_assignment(&mut lexer, graph_from_text)?,
+            TokenKind::Rule => graph_from_text = parse_rule(&mut lexer, graph_from_text)?,
             _ => return Err(vec!("unexpected token".to_string())),
         }
     }
@@ -231,3 +288,22 @@ format!("rule cc
     );
 }
 
+
+#[test]
+fn variable_block_for_rule_end_when_no_indented_line_follows() {
+    const VARIABLE_VALUE: &str = "gcc $in -o $out";
+    let rule_text =
+format!("rule cc
+    command={}
+command={}
+", VARIABLE_VALUE, VARIABLE_VALUE);
+    let graph_for_rule = parse(&rule_text).unwrap();
+    assert_eq!(
+        graph_for_rule.rules["cc"].variables["command"],
+        VARIABLE_VALUE
+    );
+    assert_eq!(
+        graph_for_rule.variables["command"],
+        VARIABLE_VALUE
+    );
+}
