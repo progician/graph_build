@@ -9,6 +9,7 @@ pub struct Edge {
 
 
 impl Edge {
+    #[allow(dead_code)]
     pub fn new<Stringish: AsRef<str>>(output: Stringish, rule: Stringish, input: Stringish) -> Self {
         Edge {
             input: input.as_ref().to_string(),
@@ -28,6 +29,7 @@ pub struct Rule {
 }
 
 impl Rule {
+    #[allow(dead_code)]
     pub fn new<Stringish: AsRef<str>>(name: Stringish, variables: Bindings) -> Self {
         Rule {
             name: name.as_ref().to_string(),
@@ -52,6 +54,7 @@ impl Graph {
         }
     }
 
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.rules.is_empty() && self.edges.is_empty()
     }
