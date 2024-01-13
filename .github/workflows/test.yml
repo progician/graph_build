@@ -23,7 +23,7 @@ jobs:
       - name: Install test dependencies
         run: python -m pip install -r test-requirements.txt
       - name: End-to-end tests
-        run: python -m pytest integration_tests
+        run: python -m pytest integration_tests --cli-exec=$PWD/target/debug/gb
 
   lint:
     runs-on: ubuntu-latest
