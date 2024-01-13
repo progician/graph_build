@@ -46,9 +46,10 @@ fn run_app() -> Result<(), String> {
     let mut build_file = cwd_path.clone();
     build_file.push("build.ninja");
     if build_file.is_file() {
-        let build_graph = read_build_file(&build_file).unwrap();
-        check_graph(&build_graph)?;
-        Ok(())
+        match read_build_file(&build_file) {
+            Ok(build_graph) => check_graph(&build_graph),
+            Err(err) => Err(format!("error parsing {}: {}", build_file.display(), err.join(", "))),
+        }
     }
     else {
         Err("no build.ninja file found".to_owned())
