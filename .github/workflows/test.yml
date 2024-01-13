@@ -12,10 +12,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.12
       - name: Build
         run: cargo build --verbose
       - name: Test
         run: cargo test --verbose
+      - name: Install test dependencies
+        run: python -m pip install -r test-requirements.txt
+      - name: End-to-end tests
+        run: python -m pytest integration_tests
 
   lint:
     runs-on: ubuntu-latest
