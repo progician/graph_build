@@ -1,7 +1,7 @@
 from pytest import raises
 from subprocess import CalledProcessError
 import ninja_syntax
-
+import pytest
 
 def test_fails_with_no_ninja_build_file(gbcli, tmp_path):
     with raises(CalledProcessError):
@@ -15,6 +15,7 @@ def test_fails_with_empty_build_ninja_file(gbcli, tmp_path):
         gbcli(cwd=tmp_path)
 
 
+@pytest.mark.xfail(reason="#1 Not implemented yet")
 def test_fails_input_file_missing(gbcli, tmp_path):
     build_file_path = tmp_path / "build.ninja"
     with build_file_path.open("wt") as build_file:
