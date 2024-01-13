@@ -3,6 +3,7 @@ from subprocess import CalledProcessError
 import ninja_syntax
 import pytest
 
+
 def test_fails_with_no_ninja_build_file(gbcli, tmp_path):
     with raises(CalledProcessError):
         gbcli(cwd=tmp_path)
