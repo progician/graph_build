@@ -24,7 +24,7 @@ enum Token {
 }
 
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Debug)]
 enum TokenKind {
     Whitespace,
     Rule,
@@ -253,82 +253,77 @@ pub fn parse(text: &str) -> Result {
     Ok(graph_from_text)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use assert2::assert;
+
+    #[test]
+    fn an_empty_file_is_a_valid_but_empty_graph() {
+        let graph_from_empty_string = parse("").unwrap();
+        assert!(graph_from_empty_string.is_empty());
+    }
 
 
-#[test]
-fn an_empty_file_is_a_valid_but_empty_graph() {
-    let graph_from_empty_string = parse("").unwrap();
-    assert!(graph_from_empty_string.is_empty());
-}
+    #[test]
+    fn a_single_assignment_is_a_global_constant() {
+        let graph_from_single_assignment = parse("x=1").unwrap();
+        assert!(graph_from_single_assignment.variables["x"] == "1");
+    }
 
 
-#[test]
-fn a_single_assignment_is_a_global_constant() {
-    let graph_from_single_assignment = parse("x=1").unwrap();
-    assert_eq!(
-        graph_from_single_assignment.variables["x"],
-        "1"
-    );
-}
+    #[test]
+    fn uniquely_named_assignments_separated_by_newlines_are_global_variables() {
+        let graph_from_single_assignment = parse("x=1\ny=2").unwrap();
+        assert!(graph_from_single_assignment.variables["x"] == "1");
+        assert!(graph_from_single_assignment.variables["y"] == "2");
+    }
 
 
-#[test]
-fn uniquely_named_assignments_separated_by_newlines_are_global_variables() {
-    let graph_from_single_assignment = parse("x=1\ny=2").unwrap();
-    assert_eq!(
-        graph_from_single_assignment.variables["x"],
-        "1"
-    );
-    assert_eq!(
-        graph_from_single_assignment.variables["y"],
-        "2"
-    );
-}
+    #[test]
+    fn rules_are_defined_by_keyword_and_identifier() {
+        const RULE_TEXT: &str =
+    "rule cc
+    ";
+        let graph_for_rule = parse(RULE_TEXT).unwrap();
+        assert!(graph_for_rule.rules.contains_key("cc") == true);
+    }
 
 
-#[test]
-fn rules_are_defined_by_keyword_and_identifier() {
-    const RULE_TEXT: &str =
-"rule cc
-";
-    let graph_for_rule = parse(RULE_TEXT).unwrap();
-    assert_eq!(
-        graph_for_rule.rules.contains_key("cc"),
-        true
-    );
-}
+    #[test]
+    fn indented_variable_block_after_rule_are_variables_of_the_rule() {
+        const VARIABLE_VALUE: &str = "gcc $in -o $out";
+        let rule_text =
+    format!("rule cc
+        command={}
+    ", VARIABLE_VALUE);
+        let graph_for_rule = parse(&rule_text).unwrap();
+        assert!(graph_for_rule.rules["cc"].variables["command"] == VARIABLE_VALUE);
+    }
 
 
-#[test]
-fn indented_variable_block_after_rule_are_variables_of_the_rule() {
-    const VARIABLE_VALUE: &str = "gcc $in -o $out";
-    let rule_text =
-format!("rule cc
+    #[test]
+    fn variable_block_for_rule_end_when_no_indented_line_follows() {
+        const VARIABLE_VALUE: &str = "gcc $in -o $out";
+        let rule_text =
+    format!("rule cc
+        command={}
     command={}
-", VARIABLE_VALUE);
-    let graph_for_rule = parse(&rule_text).unwrap();
-    assert_eq!(
-        graph_for_rule.rules["cc"].variables["command"],
-        VARIABLE_VALUE
-    );
-}
+    ", VARIABLE_VALUE, VARIABLE_VALUE);
+        let graph_for_rule = parse(&rule_text).unwrap();
+        assert!(graph_for_rule.rules["cc"].variables["command"] == VARIABLE_VALUE);
+        assert!(graph_for_rule.variables["command"] == VARIABLE_VALUE);
+    }
 
 
-#[test]
-fn variable_block_for_rule_end_when_no_indented_line_follows() {
-    const VARIABLE_VALUE: &str = "gcc $in -o $out";
-    let rule_text =
-format!("rule cc
-    command={}
-command={}
-", VARIABLE_VALUE, VARIABLE_VALUE);
-    let graph_for_rule = parse(&rule_text).unwrap();
-    assert_eq!(
-        graph_for_rule.rules["cc"].variables["command"],
-        VARIABLE_VALUE
-    );
-    assert_eq!(
-        graph_for_rule.variables["command"],
-        VARIABLE_VALUE
-    );
+    #[test]
+    fn lexing_of_full_rule_and_build_command() {
+        const TEXT: &str = "
+    rule capitalize
+        command = dd if=$in of=$out conv=ucase
+    build loremipsum.txt.u: capitalize loremipsum.txt
+    ";
+        let mut lexer = NinjaLexer::new(TEXT);
+        assert!(lexer.next() == Some(Ok(TokenKind::Newline)));
+    }
 }

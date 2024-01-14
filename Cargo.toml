@@ -8,6 +8,7 @@ edition = "2021"
 
 [dependencies]
 logos = "0.13"
+assert2 = "0.3"
 
 [[bin]]
 name = "gb"
