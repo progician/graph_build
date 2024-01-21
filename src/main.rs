@@ -4,6 +4,7 @@ use std::fs::File;
 use std::io::prelude::*;
 
 mod graph;
+mod ninjalexer;
 mod ninja_file;
 
 
