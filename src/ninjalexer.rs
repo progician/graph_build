@@ -52,8 +52,8 @@ enum NinjaFileToken {
     #[token("default")]
     Default,
 
-    #[token("=")]
-    Equals,
+    #[regex("=[ ]*[^\n]+")]
+    AssignmentValue,
 
     #[token(":")]
     Colon,
@@ -96,6 +96,14 @@ mod tests {
             NinjaFileToken::Identifier,
             NinjaFileToken::Colon,
             NinjaFileToken::Identifier,
+        ]);
+    }
+
+    #[test]
+    fn test_global_assignment() {
+        assert_token_stream("x=1", &[
+            NinjaFileToken::Identifier,
+            NinjaFileToken::AssignmentValue,
         ]);
     }
 }
